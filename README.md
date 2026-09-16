@@ -1,12 +1,12 @@
-# censor
+# stifle
 
 Delete comments — and optionally docstrings — from a Python codebase.
 Fast, and built so it provably cannot touch anything the program can see.
 
 ```console
-$ censor format path/to/project       # strip comments and orphan strings, in place
-$ censor check src/                   # CI gate: exit 1 if anything would change
-$ censor check --diff --delete docstrings pkg/   # preview without writing
+$ stifle format path/to/project       # strip comments and orphan strings, in place
+$ stifle check src/                   # CI gate: exit 1 if anything would change
+$ stifle check --diff --delete docstrings pkg/   # preview without writing
 ```
 
 Zero runtime dependencies, pure stdlib, Python 3.11+.
@@ -78,7 +78,7 @@ comment-stripped.
 
 ## The safety guarantee
 
-`censor` never regenerates code. The only edits it makes are deleting whole
+`stifle` never regenerates code. The only edits it makes are deleting whole
 physical lines and cutting a line at the start column of a trailing comment,
 so every surviving line is byte-for-byte identical to the input — formatting,
 quotes, escapes, encodings, BOMs and CRLF line endings included.
@@ -105,12 +105,12 @@ set must verify and be idempotent on every file.
 
 ## CLI
 
-censor uses two subcommands, so the invocations you already know from
+stifle uses two subcommands, so the invocations you already know from
 `ruff` and `black` do what you'd expect:
 
 ```text
-censor check PATH... [--fix] [--delete CAT]... [--skip CAT]... [options]
-censor format PATH... [--check] [--delete CAT]... [--skip CAT]... [options]
+stifle check PATH... [--fix] [--delete CAT]... [--skip CAT]... [options]
+stifle format PATH... [--check] [--delete CAT]... [--skip CAT]... [options]
 ```
 
 - `check` reports what would change and never writes; add `--fix`
@@ -140,16 +140,16 @@ Shared options:
   --isolated            ignore any pyproject.toml configuration
 ```
 
-Running `censor` without a command is a usage error (exit 2); nothing is
+Running `stifle` without a command is a usage error (exit 2); nothing is
 written.
 
 ## Configuration
 
-`censor` reads settings from a `[tool.censor]` table in a `pyproject.toml`,
+`stifle` reads settings from a `[tool.stifle]` table in a `pyproject.toml`,
 the same way `black` and `ruff` do:
 
 ```toml
-[tool.censor]
+[tool.stifle]
 delete = ["own-line"]    # replaces the default (own-line, trailing,
                          # orphan-strings)
 skip = ["trailing"]      # subtracted from the selection
@@ -159,10 +159,10 @@ exclude = ["migrations/*"]
 ```
 
 Discovery is black-style: starting from the common ancestor of the input
-paths, censor walks up until it finds a `pyproject.toml` with a
-`[tool.censor]` table — stopping at the project root (a directory holding
+paths, stifle walks up until it finds a `pyproject.toml` with a
+`[tool.stifle]` table — stopping at the project root (a directory holding
 `.git` or `.hg`). Pass `--config PATH` to read an explicit file (it may be
-a normal pyproject or carry a bare top-level `[censor]` table), or
+a normal pyproject or carry a bare top-level `[stifle]` table), or
 `--isolated` to ignore configuration entirely.
 
 Precedence follows the black convention: **configuration supplies defaults;
@@ -172,11 +172,11 @@ paths are CLI-only and cannot be set in the file).
 ## CI gate
 
 ```console
-$ censor check src/
+$ stifle check src/
 would strip comments from: src/pkg/mod.py
-censor: 1 files contain comments censor would delete.
-censor: to fix, run: censor format src/
-censor: (rewrites in place; run with --diff first to preview the deletions)
+stifle: 1 files contain comments stifle would delete.
+stifle: to fix, run: stifle format src/
+stifle: (rewrites in place; run with --diff first to preview the deletions)
 $ echo $?
 1
 ```
@@ -185,14 +185,14 @@ Directories are searched recursively for `*.py`; `.git`, `.venv`, `venv`,
 `__pycache__`, `build`, `dist`, `.tox`, `.nox`, `.eggs` and common tool
 caches are skipped. Explicitly named files are processed as-is.
 
-Exit codes: `0` success, `1` changes needed (`censor check` without `--fix`, `censor format --check`, or docstring
+Exit codes: `0` success, `1` changes needed (`stifle check` without `--fix`, `stifle format --check`, or docstring
 violations from `--max-doc-lines`), `2` any file skipped or failed (every
 such file is listed on stderr, and left untouched).
 
 ## Docstring length cap
 
 ```console
-$ censor check --max-doc-lines 20 src/   # CI gate for oversized docstrings
+$ stifle check --max-doc-lines 20 src/   # CI gate for oversized docstrings
 ```
 
 `--max-doc-lines N` reports every module/class/function docstring whose
@@ -215,7 +215,7 @@ whole 15 MB CPython stdlib takes about two seconds on two cores).
 ## Library use
 
 ```python
-from censor import DOCSTRINGS, strip_source, verify
+from stifle import DOCSTRINGS, strip_source, verify
 
 stripped = strip_source(
     src, {"own-line", "docstrings"}, keep=re.compile(r"KEEP")

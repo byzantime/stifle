@@ -3,15 +3,15 @@ import textwrap
 
 import pytest
 
-from censor import ALL_TARGETS
-from censor import DOCSTRINGS
-from censor import ORPHAN_STRINGS
-from censor import OWN_LINE
-from censor import TRAILING
-from censor import _cli
-from censor import strip_source
-from censor import verify
-from censor._cli import main
+from stifle import ALL_TARGETS
+from stifle import DOCSTRINGS
+from stifle import ORPHAN_STRINGS
+from stifle import OWN_LINE
+from stifle import TRAILING
+from stifle import _cli
+from stifle import strip_source
+from stifle import verify
+from stifle._cli import main
 
 COMMENTS = frozenset({OWN_LINE, TRAILING})
 COMMENTS_AND_DOCSTRINGS = frozenset({OWN_LINE, TRAILING, DOCSTRINGS})
@@ -470,7 +470,7 @@ def test_cli_preserves_file_mode(tmp_path):
 
 def test_cli_config_discovered_from_pyproject(tmp_path, capsys):
     (tmp_path / "pyproject.toml").write_text(
-        '[tool.censor]\ndelete = ["own-line", "trailing"]\n'
+        '[tool.stifle]\ndelete = ["own-line", "trailing"]\n'
     )
     f = tmp_path / "a.py"
     f.write_text("x = 1  # gone\n")
@@ -480,7 +480,7 @@ def test_cli_config_discovered_from_pyproject(tmp_path, capsys):
 
 def test_cli_config_discovery_stops_at_project_root(tmp_path):
     (tmp_path / "pyproject.toml").write_text(
-        '[tool.censor]\ndelete = ["own-line"]\n'
+        '[tool.stifle]\ndelete = ["own-line"]\n'
     )
     proj = tmp_path / "proj"
     (proj / ".git").mkdir(parents=True)
@@ -494,7 +494,7 @@ def test_cli_config_discovery_stops_at_project_root(tmp_path):
 
 def test_cli_flag_beats_config(tmp_path):
     (tmp_path / "pyproject.toml").write_text(
-        '[tool.censor]\ndelete = ["own-line"]\n'
+        '[tool.stifle]\ndelete = ["own-line"]\n'
     )
     f = tmp_path / "a.py"
     f.write_text("x = 1  # gone\n")
@@ -516,7 +516,7 @@ def test_cli_flag_beats_config(tmp_path):
 
 def test_cli_config_keep_list_combines(tmp_path):
     (tmp_path / "pyproject.toml").write_text(
-        '[tool.censor]\nkeep = ["KEEP", "SPARE"]\ndefault-keeps = false\n'
+        '[tool.stifle]\nkeep = ["KEEP", "SPARE"]\ndefault-keeps = false\n'
     )
     f = tmp_path / "a.py"
     f.write_text("# KEEP me\n# SPARE me\n# noqa: file-level\nx = 1\n")
@@ -525,7 +525,7 @@ def test_cli_config_keep_list_combines(tmp_path):
 
 
 def test_cli_flag_beats_config_keep_list(tmp_path):
-    (tmp_path / "pyproject.toml").write_text('[tool.censor]\nkeep = ["NOPE"]\n')
+    (tmp_path / "pyproject.toml").write_text('[tool.stifle]\nkeep = ["NOPE"]\n')
     f = tmp_path / "a.py"
     f.write_text("# KEEP me\n# NOPE me\nx = 1\n")
     assert main(["format", "--keep", "KEEP", str(f)]) == 0
@@ -534,7 +534,7 @@ def test_cli_flag_beats_config_keep_list(tmp_path):
 
 def test_cli_isolated_ignores_config(tmp_path, capsys):
     (tmp_path / "pyproject.toml").write_text(
-        '[tool.censor]\nskip = ["trailing"]\n'
+        '[tool.stifle]\nskip = ["trailing"]\n'
     )
     f = tmp_path / "a.py"
     f.write_text("x = 1  # stays\n")
@@ -544,7 +544,7 @@ def test_cli_isolated_ignores_config(tmp_path, capsys):
 
 def test_cli_explicit_config_file(tmp_path):
     cfg = tmp_path / "other-pyproject.toml"
-    cfg.write_text('[tool.censor]\ndelete = ["own-line", "trailing"]\n')
+    cfg.write_text('[tool.stifle]\ndelete = ["own-line", "trailing"]\n')
     f = tmp_path / "a.py"
     f.write_text("x = 1  # gone\n")
     assert main(["format", "--config", str(cfg), str(f)]) == 0
@@ -552,8 +552,8 @@ def test_cli_explicit_config_file(tmp_path):
 
 
 def test_cli_config_bare_top_level_table_accepted(tmp_path):
-    cfg = tmp_path / "censor-only.toml"
-    cfg.write_text('[censor]\ndelete = ["own-line", "trailing"]\n')
+    cfg = tmp_path / "stifle-only.toml"
+    cfg.write_text('[stifle]\ndelete = ["own-line", "trailing"]\n')
     f = tmp_path / "a.py"
     f.write_text("x = 1  # gone\n")
     assert main(["format", "--config", str(cfg), str(f)]) == 0
@@ -561,7 +561,7 @@ def test_cli_config_bare_top_level_table_accepted(tmp_path):
 
 
 def test_cli_unknown_config_key_errors(tmp_path, capsys):
-    (tmp_path / "pyproject.toml").write_text('[tool.censor]\nmod = "all"\n')
+    (tmp_path / "pyproject.toml").write_text('[tool.stifle]\nmod = "all"\n')
     f = tmp_path / "a.py"
     f.write_text("x = 1\n")
     with pytest.raises(SystemExit) as exc:
@@ -574,7 +574,7 @@ def test_cli_unknown_config_key_errors(tmp_path, capsys):
 
 def test_cli_wrong_typed_config_value_errors(tmp_path, capsys):
     (tmp_path / "pyproject.toml").write_text(
-        '[tool.censor]\ndefault-keeps = "yes"\n'
+        '[tool.stifle]\ndefault-keeps = "yes"\n'
     )
     f = tmp_path / "a.py"
     f.write_text("x = 1\n")
@@ -585,7 +585,7 @@ def test_cli_wrong_typed_config_value_errors(tmp_path, capsys):
 
 def test_cli_invalid_skip_entry_in_config_errors(tmp_path, capsys):
     (tmp_path / "pyproject.toml").write_text(
-        '[tool.censor]\nskip = ["aggressive"]\n'
+        '[tool.stifle]\nskip = ["aggressive"]\n'
     )
     f = tmp_path / "a.py"
     f.write_text("x = 1\n")
@@ -616,7 +616,7 @@ def test_cli_empty_selection_errors(tmp_path, capsys):
 
 def test_cli_non_string_delete_entry_errors_cleanly(tmp_path, capsys):
     (tmp_path / "pyproject.toml").write_text(
-        '[tool.censor]\ndelete = [["own-line"]]\n'
+        '[tool.stifle]\ndelete = [["own-line"]]\n'
     )
     f = tmp_path / "a.py"
     f.write_text("x = 1\n")
@@ -639,7 +639,7 @@ def test_cli_check_failure_prints_rerun_command(tmp_path, capsys):
     assert main(argv) == 1
     out = capsys.readouterr()
     assert "would strip comments from:" in out.out
-    assert "to fix, run: censor format %s" % str(f) in out.err
+    assert "to fix, run: stifle format %s" % str(f) in out.err
 
 
 def test_cli_check_rerun_command_drops_check_and_diff(tmp_path, capsys):
@@ -732,7 +732,7 @@ def test_cli_format_diff_prints_and_exits_0_without_writing(tmp_path, capsys):
 
 
 def dv(src, n):
-    from censor import docstring_violations
+    from stifle import docstring_violations
 
     return docstring_violations(src, n)
 
@@ -932,7 +932,7 @@ def test_cli_explicit_delete_does_not_add_orphan_strings(tmp_path):
 
 def test_cli_config_skip_orphan_strings(tmp_path):
     (tmp_path / "pyproject.toml").write_text(
-        '[tool.censor]\nskip = ["orphan-strings"]\n'
+        '[tool.stifle]\nskip = ["orphan-strings"]\n'
     )
     f = tmp_path / "a.py"
     src = 'x = 1\n"""orphan"""\n'
@@ -997,9 +997,7 @@ PARENTHESISED_ORPHAN = 'x = 1\n("abc"  # inner\n "def")\ny = 2\n'
 BRACKETED_OWN_LINE = 'x = 1\n(\n    # own-line\n    "abc"\n)\ny = 2\n'
 
 
-@pytest.mark.parametrize(
-    "src", [PARENTHESISED_ORPHAN, BRACKETED_OWN_LINE]
-)
+@pytest.mark.parametrize("src", [PARENTHESISED_ORPHAN, BRACKETED_OWN_LINE])
 def test_orphan_covering_a_surviving_comment_is_kept(src):
     """Deletion is by whole lines, so it must not swallow a comment."""
     assert strip(src, {ORPHAN_STRINGS}) == src

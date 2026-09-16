@@ -11,14 +11,14 @@ import tokenize
 
 import pytest
 
-from censor import ALL_TARGETS
-from censor import DOCSTRINGS
-from censor import ORPHAN_STRINGS
-from censor import OWN_LINE
-from censor import TARGETS
-from censor import TRAILING
-from censor import strip_source
-from censor import verify
+from stifle import ALL_TARGETS
+from stifle import DOCSTRINGS
+from stifle import ORPHAN_STRINGS
+from stifle import OWN_LINE
+from stifle import TARGETS
+from stifle import TRAILING
+from stifle import strip_source
+from stifle import verify
 
 _SKIP_PARTS = {
     "test",
