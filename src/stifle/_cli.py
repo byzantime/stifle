@@ -26,11 +26,11 @@ from typing import Pattern
 from typing import Sequence
 from typing import Tuple
 
-from censor._core import ALL_TARGETS
-from censor._core import TARGETS
-from censor._core import docstring_violations
-from censor._core import strip_source
-from censor._core import verify
+from stifle._core import ALL_TARGETS
+from stifle._core import TARGETS
+from stifle._core import docstring_violations
+from stifle._core import strip_source
+from stifle._core import verify
 
 SKIP_DIRS = frozenset(
     {
@@ -79,14 +79,14 @@ def _read_toml(path: Path, parser: argparse.ArgumentParser) -> dict:
 def _explicit_config(
     config_path: Path, parser: argparse.ArgumentParser
 ) -> dict:
-    """Read ``[tool.censor]`` (or a bare top-level ``[censor]``)."""
+    """Read ``[tool.stifle]`` (or a bare top-level ``[stifle]``)."""
     data = _read_toml(config_path, parser)
-    table = data.get("censor", data.get("tool", {}).get("censor"))
+    table = data.get("stifle", data.get("tool", {}).get("stifle"))
     if table is None:
         return {}
     if not isinstance(table, dict):
         parser.error(
-            "%s: [tool.censor] must be a table, got %r" % (config_path, table)
+            "%s: [tool.stifle] must be a table, got %r" % (config_path, table)
         )
     return _validate_config(table, str(config_path), parser)
 
@@ -97,11 +97,11 @@ def _load_config(
     isolated: bool,
     parser: argparse.ArgumentParser,
 ) -> dict:
-    """Load ``[tool.censor]`` settings, black-style.
+    """Load ``[tool.stifle]`` settings, black-style.
 
     With no explicit *config_path*, walk up from the common ancestor of
     *paths*; the first directory whose ``pyproject.toml`` contains a
-    ``[tool.censor]`` table wins. Discovery stops at a project root (a
+    ``[tool.stifle]`` table wins. Discovery stops at a project root (a
     directory holding ``.git``/``.hg``) or the filesystem root.
     """
     if isolated:
@@ -115,7 +115,7 @@ def _load_config(
     for directory in [anchor, *anchor.parents]:
         candidate = directory / "pyproject.toml"
         if candidate.is_file():
-            table = _read_toml(candidate, parser).get("tool", {}).get("censor")
+            table = _read_toml(candidate, parser).get("tool", {}).get("stifle")
             if table is not None:
                 return _validate_config(table, str(candidate), parser)
         if any((directory / m).exists() for m in PROJECT_ROOT_MARKERS):
@@ -131,7 +131,7 @@ def _validate_list_key(
     for entry in entries:
         if not isinstance(entry, str):
             parser.error(
-                "%s: [tool.censor] %s entries must be strings, got %r"
+                "%s: [tool.stifle] %s entries must be strings, got %r"
                 % (source, key, entry)
             )
         if key == "keep":
@@ -139,7 +139,7 @@ def _validate_list_key(
                 re.compile(entry)
             except re.error as exc:
                 parser.error(
-                    "%s: [tool.censor] keep entry %r is not a valid "
+                    "%s: [tool.stifle] keep entry %r is not a valid "
                     "regex: %s" % (source, entry, exc)
                 )
 
@@ -150,7 +150,7 @@ def _validate_config(
     unknown = sorted(set(table) - set(CONFIG_KEYS))
     if unknown:
         parser.error(
-            "unknown key%s in [tool.censor] (%s): %s; valid keys are: %s"
+            "unknown key%s in [tool.stifle] (%s): %s; valid keys are: %s"
             % (
                 "s" if len(unknown) != 1 else "",
                 source,
@@ -162,7 +162,7 @@ def _validate_config(
         expected = CONFIG_KEYS[key]
         if not isinstance(value, expected):
             parser.error(
-                "%s: [tool.censor] %s must be a %s, got %r"
+                "%s: [tool.stifle] %s must be a %s, got %r"
                 % (
                     source,
                     key,
@@ -176,7 +176,7 @@ def _validate_config(
             bad = sorted(set(value) - TARGETS)
             if bad:
                 parser.error(
-                    "%s: [tool.censor] %s entries must be one of: %s (got %s)"
+                    "%s: [tool.stifle] %s entries must be one of: %s (got %s)"
                     % (
                         source,
                         key,
@@ -230,7 +230,7 @@ def _discover(
 def _atomic_write(path: str, data: bytes) -> None:
     parent, name = os.path.split(os.path.abspath(path))
     fd, tmp = tempfile.mkstemp(
-        dir=parent, prefix=name + ".", suffix=".censor-tmp"
+        dir=parent, prefix=name + ".", suffix=".stifle-tmp"
     )
     try:
         with os.fdopen(fd, "wb") as fh:
@@ -459,7 +459,7 @@ def _build_shared_options(parser: argparse.ArgumentParser) -> None:
 
 def _build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
-        prog="censor",
+        prog="stifle",
         description="Delete comments (and optionally docstrings) from Python "
         "code. Categories: own-line (a comment alone on its line), trailing "
         "(after code on the same line), orphan-strings (a bare string "
@@ -469,7 +469,7 @@ def _build_parser() -> argparse.ArgumentParser:
         "when the result provably preserves the program; anything that "
         "cannot be proven safe is left untouched and reported.",
     )
-    from censor import __version__
+    from stifle import __version__
 
     parser.add_argument(
         "--version", action="version", version="%(prog)s " + __version__
@@ -527,8 +527,8 @@ def _normalise_argv(argv: List[str], parser: argparse.ArgumentParser) -> None:
             return
         i += 2 if arg in _VALUE_FLAGS else 1
     parser.error(
-        "no command given; use `censor check PATH` to report or "
-        "`censor format PATH` to rewrite in place"
+        "no command given; use `stifle check PATH` to report or "
+        "`stifle format PATH` to rewrite in place"
     )
 
 
@@ -548,7 +548,7 @@ def _report(
     if result.status == CHANGED and checking and not ns.diff:
         print("would strip comments from: %s" % result.path)
     if result.message:
-        print("censor: %s: %s" % (result.path, result.message), file=sys.stderr)
+        print("stifle: %s: %s" % (result.path, result.message), file=sys.stderr)
 
 
 def _merge(
@@ -604,9 +604,9 @@ def main(argv: "Optional[Sequence[str]]" = None) -> int:
     targets, keep, default_keeps, exclude = _merge(ns, config, parser)
     files, missing = _discover(ns.paths, exclude)
     for path in missing:
-        print("censor: no such file or directory: %s" % path, file=sys.stderr)
+        print("stifle: no such file or directory: %s" % path, file=sys.stderr)
     if not files:
-        print("censor: no Python files found", file=sys.stderr)
+        print("stifle: no Python files found", file=sys.stderr)
         return 2 if missing else 0
 
     checking = not ns.fix if command == "check" else bool(ns.check)
@@ -622,7 +622,7 @@ def main(argv: "Optional[Sequence[str]]" = None) -> int:
 
     verb = "would change" if checking or ns.diff else "changed"
     summary = (
-        "censor: %d file%s: %d %s, %d unchanged, %d skipped, %d failed"
+        "stifle: %d file%s: %d %s, %d unchanged, %d skipped, %d failed"
         % (
             len(files),
             "s" if len(files) != 1 else "",
@@ -642,13 +642,13 @@ def main(argv: "Optional[Sequence[str]]" = None) -> int:
         rest = [a for a in argv[1:] if a not in ("--check", "--diff", "--fix")]
         rerun = shlex.join(["format", *rest])
         print(
-            "censor: %d files contain comments censor would delete."
+            "stifle: %d files contain comments stifle would delete."
             % counts[CHANGED],
             file=sys.stderr,
         )
-        print("censor: to fix, run: censor %s" % rerun, file=sys.stderr)
+        print("stifle: to fix, run: stifle %s" % rerun, file=sys.stderr)
         print(
-            "censor: (rewrites in place; run with --diff first to preview "
+            "stifle: (rewrites in place; run with --diff first to preview "
             "the deletions)",
             file=sys.stderr,
         )
