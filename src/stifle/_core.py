@@ -166,6 +166,11 @@ def _deletable_docstrings(
     Returns ``(owner, docstring_stmt, sole)`` triples; *sole* means the
     docstring is the entire body of a class or function, so deleting it
     requires a ``pass`` in its place.
+
+    A leading string immediately followed by another bare string is left
+    alone: it is the ``#!/bin/sh`` polyglot opener, and deleting it would
+    promote the string below it into the docstring slot, so a second run
+    would delete that too.  Skipping it keeps the twice-run guarantee.
     """
     found = []
     for node in ast.walk(tree):
@@ -175,6 +180,8 @@ def _deletable_docstrings(
         if not body or not _string_expr(body[0]):
             continue
         doc = body[0]
+        if len(body) > 1 and _string_expr(body[1]):
+            continue
         if not _line_is_clear(lines, surviving, doc):
             continue
         sole = len(body) == 1 and not isinstance(node, ast.Module)

@@ -7,6 +7,7 @@ from stifle import ALL_TARGETS
 from stifle import DOCSTRINGS
 from stifle import ORPHAN_STRINGS
 from stifle import OWN_LINE
+from stifle import TARGETS
 from stifle import TRAILING
 from stifle import _cli
 from stifle import strip_source
@@ -278,6 +279,16 @@ def test_idempotent():
     for targets in (ALL_TARGETS, COMMENTS, COMMENTS_AND_DOCSTRINGS):
         once = strip(src, targets)
         assert strip(once, targets) == once
+
+
+def test_idempotent_polyglot_docstring():
+    src = (
+        "#!/bin/sh\n" "'''exec' python3 \"$0\" \"$@\"\n" "' '''\n" '"""doc"""\n'
+    )
+    once = strip(src, TARGETS)
+    assert strip(once, TARGETS) == once
+    assert "'exec'" in once
+    assert '"""doc"""' in once
 
 
 def test_cli_default_truncates_trailing_comment(tmp_path):
