@@ -9,7 +9,7 @@ $ stifle check src/                   # CI gate: exit 1 if anything would change
 $ stifle check --diff --delete docstrings pkg/   # preview without writing
 ```
 
-Zero runtime dependencies, pure stdlib, Python 3.11+.
+Zero runtime dependencies, pure stdlib, Python 3.12+.
 
 ## What gets deleted
 
