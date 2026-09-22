@@ -286,9 +286,8 @@ def test_idempotent_polyglot_docstring():
         "#!/bin/sh\n" "'''exec' python3 \"$0\" \"$@\"\n" "' '''\n" '"""doc"""\n'
     )
     once = strip(src, TARGETS)
+    assert once == src
     assert strip(once, TARGETS) == once
-    assert "'exec'" in once
-    assert '"""doc"""' in once
 
 
 def test_cli_default_truncates_trailing_comment(tmp_path):
