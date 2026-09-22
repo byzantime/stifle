@@ -167,10 +167,8 @@ def _deletable_docstrings(
     docstring is the entire body of a class or function, so deleting it
     requires a ``pass`` in its place.
 
-    A leading string immediately followed by another bare string is left
-    alone: it is the ``#!/bin/sh`` polyglot opener, and deleting it would
-    promote the string below it into the docstring slot, so a second run
-    would delete that too.  Skipping it keeps the twice-run guarantee.
+    A leading string followed by another bare string is left alone: it is
+    the ``#!/bin/sh`` polyglot opener, so nothing gets promoted.
     """
     found = []
     for node in ast.walk(tree):
