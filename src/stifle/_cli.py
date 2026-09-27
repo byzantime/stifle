@@ -64,6 +64,7 @@ CONFIG_KEYS = {
     "keep": list,
     "default-keeps": bool,
     "exclude": list,
+    "max-doc-lines": int,
 }
 
 
@@ -144,6 +145,13 @@ def _validate_list_key(
                 )
 
 
+def _is_type(value: object, expected: type) -> bool:
+    """``isinstance`` that refuses a bool where an int is expected."""
+    if isinstance(value, bool) and expected is not bool:
+        return False
+    return isinstance(value, expected)
+
+
 def _validate_config(
     table: dict, source: str, parser: argparse.ArgumentParser
 ) -> dict:
@@ -160,15 +168,25 @@ def _validate_config(
         )
     for key, value in table.items():
         expected = CONFIG_KEYS[key]
-        if not isinstance(value, expected):
+        if not _is_type(value, expected):
             parser.error(
-                "%s: [tool.stifle] %s must be a %s, got %r"
+                "%s: [tool.stifle] %s must be %s, got %r"
                 % (
                     source,
                     key,
-                    {str: "string", list: "list", bool: "boolean"}[expected],
+                    {
+                        str: "a string",
+                        list: "a list",
+                        bool: "a boolean",
+                        int: "an integer",
+                    }[expected],
                     value,
                 )
+            )
+        if key == "max-doc-lines" and value < 1:
+            parser.error(
+                "%s: [tool.stifle] max-doc-lines must be at least 1, got %r"
+                % (source, value)
             )
         if key in ("keep", "exclude", "delete", "skip"):
             _validate_list_key(key, value, source, parser)
@@ -553,9 +571,9 @@ def _report(
 
 def _merge(
     ns: argparse.Namespace, config: dict, parser: argparse.ArgumentParser
-) -> "Tuple[Tuple[str, ...], Optional[str], bool, List[str]]":
-    """Resolve (targets, keep-regex, default_keeps, exclude): config
-    supplies defaults, any explicit CLI flag wins outright."""
+) -> "Tuple[Tuple[str, ...], Optional[str], bool, List[str], Optional[int]]":
+    """Resolve (targets, keep-regex, default_keeps, exclude, max_doc_lines):
+    config supplies defaults, any explicit CLI flag wins outright."""
     if ns.delete is not None:
         selected = set(ns.delete)
     elif "delete" in config:
@@ -589,7 +607,12 @@ def _merge(
         if ns.exclude is not None
         else list(config.get("exclude") or [])
     )
-    return tuple(sorted(selected)), keep, default_keeps, exclude
+    max_doc_lines = (
+        ns.max_doc_lines
+        if ns.max_doc_lines is not None
+        else config.get("max-doc-lines")
+    )
+    return tuple(sorted(selected)), keep, default_keeps, exclude, max_doc_lines
 
 
 def main(argv: "Optional[Sequence[str]]" = None) -> int:
@@ -601,7 +624,9 @@ def main(argv: "Optional[Sequence[str]]" = None) -> int:
     if ns.max_doc_lines is not None and ns.max_doc_lines < 1:
         parser.error("--max-doc-lines must be at least 1")
     config = _load_config(ns.paths, ns.config, ns.isolated, parser)
-    targets, keep, default_keeps, exclude = _merge(ns, config, parser)
+    targets, keep, default_keeps, exclude, max_doc_lines = _merge(
+        ns, config, parser
+    )
     files, missing = _discover(ns.paths, exclude)
     for path in missing:
         print("stifle: no such file or directory: %s" % path, file=sys.stderr)
@@ -611,9 +636,7 @@ def main(argv: "Optional[Sequence[str]]" = None) -> int:
 
     checking = not ns.fix if command == "check" else bool(ns.check)
     write = not checking and not ns.diff
-    cfg = _Config(
-        targets, keep, default_keeps, write, ns.diff, ns.max_doc_lines
-    )
+    cfg = _Config(targets, keep, default_keeps, write, ns.diff, max_doc_lines)
     jobs = ns.jobs if ns.jobs is not None else os.cpu_count() or 1
 
     counts = {UNCHANGED: 0, CHANGED: 0, SKIPPED: 0, FAILED: 0, "violations": 0}
@@ -633,7 +656,7 @@ def main(argv: "Optional[Sequence[str]]" = None) -> int:
             counts[FAILED],
         )
     )
-    if ns.max_doc_lines is not None:
+    if max_doc_lines is not None:
         summary += ", %d docstring violations" % counts["violations"]
     print(summary, file=sys.stderr)
     if counts[FAILED] or counts[SKIPPED] or missing:

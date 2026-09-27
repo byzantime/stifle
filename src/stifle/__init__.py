@@ -20,7 +20,7 @@ from stifle._core import docstring_violations
 from stifle._core import strip_source
 from stifle._core import verify
 
-__version__ = "1.0.0"
+__version__ = "1.1.0"
 
 __all__ = [
     "OWN_LINE",
