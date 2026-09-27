@@ -596,9 +596,9 @@ def test_cli_wrong_typed_config_value_errors(tmp_path, capsys):
 LONG_DOC_SRC = 'def f():\n    """a\n    b\n    c"""\n'
 
 
-def _long_doc_project(tmp_path, limit):
+def _long_doc_project(tmp_path, raw_max_doc_lines):
     (tmp_path / "pyproject.toml").write_text(
-        "[tool.stifle]\nmax-doc-lines = %s\n" % limit
+        "[tool.stifle]\nmax-doc-lines = %s\n" % raw_max_doc_lines
     )
     f = tmp_path / "a.py"
     f.write_text(LONG_DOC_SRC)
