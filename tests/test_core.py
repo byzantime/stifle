@@ -593,6 +593,80 @@ def test_cli_wrong_typed_config_value_errors(tmp_path, capsys):
     assert "must be a boolean" in capsys.readouterr().err
 
 
+LONG_DOC_SRC = 'def f():\n    """a\n    b\n    c"""\n'
+
+
+def _long_doc_project(tmp_path, limit):
+    (tmp_path / "pyproject.toml").write_text(
+        "[tool.stifle]\nmax-doc-lines = %s\n" % limit
+    )
+    f = tmp_path / "a.py"
+    f.write_text(LONG_DOC_SRC)
+    return f
+
+
+def test_cli_config_max_doc_lines_matches_flag(tmp_path, capsys):
+    f = _long_doc_project(tmp_path, 2)
+    assert main(["check", str(f)]) == 1
+    from_config = capsys.readouterr()
+    assert main(["check", "--isolated", "--max-doc-lines", "2", str(f)]) == 1
+    assert capsys.readouterr() == from_config
+    assert "%s:2: docstring of 'f' has 3 lines (limit 2)" % f in from_config.out
+    assert "1 docstring violations" in from_config.err
+
+
+def test_cli_config_max_doc_lines_under_limit_passes(tmp_path, capsys):
+    f = _long_doc_project(tmp_path, 3)
+    assert main(["check", str(f)]) == 0
+    assert "0 docstring violations" in capsys.readouterr().err
+
+
+def test_cli_config_max_doc_lines_applies_to_format(tmp_path):
+    f = _long_doc_project(tmp_path, 2)
+    assert main(["format", str(f)]) == 1
+    assert f.read_text() == LONG_DOC_SRC
+
+
+def test_cli_max_doc_lines_flag_beats_config(tmp_path):
+    f = _long_doc_project(tmp_path, 2)
+    assert main(["check", "--max-doc-lines", "3", str(f)]) == 0
+    f = _long_doc_project(tmp_path, 3)
+    assert main(["check", "--max-doc-lines", "2", str(f)]) == 1
+
+
+def test_cli_isolated_ignores_config_max_doc_lines(tmp_path, capsys):
+    f = _long_doc_project(tmp_path, 2)
+    assert main(["check", "--isolated", str(f)]) == 0
+    assert "docstring violations" not in capsys.readouterr().err
+
+
+def test_cli_explicit_config_max_doc_lines(tmp_path):
+    cfg = tmp_path / "other.toml"
+    cfg.write_text("[stifle]\nmax-doc-lines = 2\n")
+    f = tmp_path / "a.py"
+    f.write_text(LONG_DOC_SRC)
+    assert main(["check", "--config", str(cfg), str(f)]) == 1
+
+
+@pytest.mark.parametrize(
+    "value, message",
+    [
+        ('"7"', "max-doc-lines must be an integer"),
+        ("true", "max-doc-lines must be an integer"),
+        ("0", "max-doc-lines must be at least 1"),
+        ("-3", "max-doc-lines must be at least 1"),
+    ],
+)
+def test_cli_invalid_config_max_doc_lines_errors(
+    tmp_path, capsys, value, message
+):
+    f = _long_doc_project(tmp_path, value)
+    with pytest.raises(SystemExit) as exc:
+        main(["check", str(f)])
+    assert exc.value.code == 2
+    assert message in capsys.readouterr().err
+
+
 def test_cli_invalid_skip_entry_in_config_errors(tmp_path, capsys):
     (tmp_path / "pyproject.toml").write_text(
         '[tool.stifle]\nskip = ["aggressive"]\n'

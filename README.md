@@ -156,6 +156,7 @@ skip = ["trailing"]      # subtracted from the selection
 keep = ["^# KEEP"]       # list of regexes for comments to preserve
 default-keeps = true     # built-in pragma preserve-list (# noqa etc.)
 exclude = ["migrations/*"]
+max-doc-lines = 20       # docstring length cap (off when unset)
 ```
 
 Discovery is black-style: starting from the common ancestor of the input
@@ -202,6 +203,10 @@ never a rewrite: docstrings are never modified by this flag, and it composes
 with every selection. The count covers the docstring's own text — interior
 blank lines do not count, the quote-only opening/closing lines do not. Any
 violation makes the exit code 1.
+
+The cap can also live in `[tool.stifle]` as `max-doc-lines = N`, so the
+gate is just `stifle check src/`; an explicit `--max-doc-lines` flag
+overrides the configured value, and `--isolated` ignores it.
 
 The cap only inspects real docstrings (`body[0]`), so prose relocated one
 statement below the thing it describes is invisible to it. That is the hole
