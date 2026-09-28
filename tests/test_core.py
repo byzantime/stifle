@@ -282,9 +282,7 @@ def test_idempotent():
 
 
 def test_idempotent_polyglot_docstring():
-    src = (
-        "#!/bin/sh\n" "'''exec' python3 \"$0\" \"$@\"\n" "' '''\n" '"""doc"""\n'
-    )
+    src = '#!/bin/sh\n\'\'\'exec\' python3 "$0" "$@"\n\' \'\'\'\n"""doc"""\n'
     once = strip(src, TARGETS)
     assert once == src
     assert strip(once, TARGETS) == once

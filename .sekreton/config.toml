@@ -1,0 +1,16 @@
+schema = 1
+
+[setup]
+run = "uv sync --group dev"
+
+[jobs.ruff]
+run = "uv run ruff check ."
+
+[jobs.ruff-format]
+run = "uv run ruff format --check ."
+
+[jobs.stifle]
+run = "uv run stifle check src tests"
+
+[jobs.pytest]
+run = "uv run pytest"

@@ -87,3 +87,6 @@ max-complexity = 10
 [tool.ruff.lint.isort]
 known-first-party = ["stifle"]
 force-single-line = true
+
+[tool.stifle]
+max-doc-lines = 7
