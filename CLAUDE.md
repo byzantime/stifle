@@ -26,4 +26,5 @@ uv run stifle format src tests   # strip violations, then hand-shorten any
                                  # docstring still flagged
 uv run pytest
 uv run ruff check .
+uv run ruff format --check .     # `uv run ruff format .` to fix
 ```

@@ -11,3 +11,6 @@ run = "uv run stifle check src tests"
 
 [jobs.pytest]
 run = "uv run pytest"
+
+[jobs.ruff-format]
+run = "uv run ruff format --check ."
