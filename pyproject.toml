@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "stifle"
-version = "1.1.0"
+version = "1.2.0"
 description = "Strip comments (and optionally docstrings) from Python code — fast, and provably incapable of touching anything else."
 readme = "README.md"
 requires-python = ">=3.12"

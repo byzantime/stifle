@@ -129,6 +129,8 @@ Shared options:
   --diff                print unified diffs instead of writing (never writes)
   --max-doc-lines N     report docstrings longer than N content lines; exit 1
                         if any (composes with every selection)
+  --max-file-lines N    report files longer than N lines; exit 1 if any
+                        (composes with every selection)
   --keep REGEX          also keep comments matching REGEX (repeatable)
   --default-keeps / --no-default-keeps
                         keep the built-in pragma preserve-list (default: true)
@@ -157,6 +159,7 @@ keep = ["^# KEEP"]       # list of regexes for comments to preserve
 default-keeps = true     # built-in pragma preserve-list (# noqa etc.)
 exclude = ["migrations/*"]
 max-doc-lines = 20       # docstring length cap (off when unset)
+max-file-lines = 1000    # file length cap in physical lines (off when unset)
 ```
 
 Discovery is black-style: starting from the common ancestor of the input
@@ -186,8 +189,9 @@ Directories are searched recursively for `*.py`; `.git`, `.venv`, `venv`,
 `__pycache__`, `build`, `dist`, `.tox`, `.nox`, `.eggs` and common tool
 caches are skipped. Explicitly named files are processed as-is.
 
-Exit codes: `0` success, `1` changes needed (`stifle check` without `--fix`, `stifle format --check`, or docstring
-violations from `--max-doc-lines`), `2` any file skipped or failed (every
+Exit codes: `0` success, `1` changes needed (`stifle check` without `--fix`, `stifle format --check`,
+docstring violations from `--max-doc-lines`, or file-length violations from
+`--max-file-lines`), `2` any file skipped or failed (every
 such file is listed on stderr, and left untouched).
 
 ## Docstring length cap
@@ -212,6 +216,26 @@ The cap only inspects real docstrings (`body[0]`), so prose relocated one
 statement below the thing it describes is invisible to it. That is the hole
 `orphan-strings` closes: such a string is deleted outright rather than
 measured.
+
+## File length cap
+
+```console
+$ stifle check --max-file-lines 1000 src/   # CI gate for oversized modules
+```
+
+`--max-file-lines N` reports every Python file longer than *N* lines, as
+`path: M lines (limit N)`. Lines are physical lines, counted the way
+`wc -l` counts them except that a final line without a trailing newline
+still counts: blank lines, comments and docstrings all count. The count is
+taken on the file as written, before any stripping. Like the docstring cap
+it is report-only — it never shortens or rewrites a file — it composes with
+every selection, and any violation makes the exit code 1. A file that
+cannot be parsed is still measured, so its length violation is reported
+alongside the skip.
+
+The cap can also live in `[tool.stifle]` as `max-file-lines = N`; an
+explicit `--max-file-lines` flag overrides the configured value, and
+`--isolated` ignores it.
 
 Performance: files are processed in parallel with a process pool; stripping
 plus verifying runs at roughly 8 MB of source per second per core (the
