@@ -17,10 +17,11 @@ from stifle._core import TARGETS
 from stifle._core import TRAILING
 from stifle._core import DocstringViolation
 from stifle._core import docstring_violations
+from stifle._core import file_line_count
 from stifle._core import strip_source
 from stifle._core import verify
 
-__version__ = "1.1.0"
+__version__ = "1.2.0"
 
 __all__ = [
     "OWN_LINE",
@@ -34,5 +35,6 @@ __all__ = [
     "DEFAULT_KEEPS",
     "DocstringViolation",
     "docstring_violations",
+    "file_line_count",
     "__version__",
 ]

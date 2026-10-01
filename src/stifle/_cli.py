@@ -29,6 +29,7 @@ from typing import Tuple
 from stifle._core import ALL_TARGETS
 from stifle._core import TARGETS
 from stifle._core import docstring_violations
+from stifle._core import file_line_count
 from stifle._core import strip_source
 from stifle._core import verify
 
@@ -65,6 +66,7 @@ CONFIG_KEYS = {
     "default-keeps": bool,
     "exclude": list,
     "max-doc-lines": int,
+    "max-file-lines": int,
 }
 
 
@@ -183,10 +185,10 @@ def _validate_config(
                     value,
                 )
             )
-        if key == "max-doc-lines" and value < 1:
+        if key in ("max-doc-lines", "max-file-lines") and value < 1:
             parser.error(
-                "%s: [tool.stifle] max-doc-lines must be at least 1, got %r"
-                % (source, value)
+                "%s: [tool.stifle] %s must be at least 1, got %r"
+                % (source, key, value)
             )
         if key in ("keep", "exclude", "delete", "skip"):
             _validate_list_key(key, value, source, parser)
@@ -211,6 +213,7 @@ class Result(NamedTuple):
     message: "Optional[str]" = None
     diff: "Optional[str]" = None
     violations: "Tuple[str, ...]" = ()
+    length_violations: "Tuple[str, ...]" = ()
 
 
 def _excluded(path: str, name: str, excludes: "Sequence[str]") -> bool:
@@ -269,6 +272,7 @@ class _Config(NamedTuple):
     write: bool
     want_diff: bool
     max_doc_lines: "Optional[int]" = None
+    max_file_lines: "Optional[int]" = None
 
 
 def _read_source(path: str) -> "Tuple[str, str]":
@@ -328,6 +332,18 @@ def _doc_violation_lines(
     )
 
 
+def _length_violation_lines(
+    cfg: _Config, path: str, src: str
+) -> "Tuple[str, ...]":
+    """Formatted --max-file-lines violation for *src* (empty when unset)."""
+    if cfg.max_file_lines is None:
+        return ()
+    n = file_line_count(src)
+    if n <= cfg.max_file_lines:
+        return ()
+    return ("%s: %d lines (limit %d)" % (path, n, cfg.max_file_lines),)
+
+
 def _finish(
     cfg: _Config,
     path: str,
@@ -358,6 +374,13 @@ def _process_one(cfg: _Config, path: str) -> Result:
         return Result(path, SKIPPED, "cannot read: %s" % exc)
     if src.count("\r") != src.count("\r\n"):
         return Result(path, SKIPPED, "lone-CR line endings are not supported")
+    length_violations = _length_violation_lines(cfg, path, src)
+    result = _process_source(cfg, path, src, encoding)
+    return result._replace(length_violations=length_violations)
+
+
+def _process_source(cfg: _Config, path: str, src: str, encoding: str) -> Result:
+    """Strip, verify and write *src*, already read from *path*."""
     keep = re.compile(cfg.keep) if cfg.keep is not None else None
     try:
         violations = _doc_violation_lines(cfg, path, src)
@@ -434,6 +457,13 @@ def _build_shared_options(parser: argparse.ArgumentParser) -> None:
         type=int,
         metavar="N",
         help="report docstrings longer than N content lines; exit 1 if any "
+        "(composes with every selection)",
+    )
+    parser.add_argument(
+        "--max-file-lines",
+        type=int,
+        metavar="N",
+        help="report files longer than N lines; exit 1 if any "
         "(composes with every selection)",
     )
     parser.add_argument(
@@ -526,6 +556,7 @@ _VALUE_FLAGS = (
     "--exclude",
     "--config",
     "--max-doc-lines",
+    "--max-file-lines",
     "--jobs",
     "--delete",
     "--skip",
@@ -557,6 +588,10 @@ def _report(
     checking: bool,
 ) -> None:
     counts[result.status] += 1
+    if result.length_violations:
+        counts["length_violations"] += len(result.length_violations)
+        for line in result.length_violations:
+            print(line)
     if result.violations:
         counts["violations"] += len(result.violations)
         for line in result.violations:
@@ -569,11 +604,22 @@ def _report(
         print("stifle: %s: %s" % (result.path, result.message), file=sys.stderr)
 
 
+class _Merged(NamedTuple):
+    targets: "Tuple[str, ...]"
+    keep: "Optional[str]"
+    default_keeps: bool
+    exclude: "List[str]"
+    max_doc_lines: "Optional[int]"
+    max_file_lines: "Optional[int]"
+
+
 def _merge(
     ns: argparse.Namespace, config: dict, parser: argparse.ArgumentParser
-) -> "Tuple[Tuple[str, ...], Optional[str], bool, List[str], Optional[int]]":
-    """Resolve (targets, keep-regex, default_keeps, exclude, max_doc_lines):
-    config supplies defaults, any explicit CLI flag wins outright."""
+) -> _Merged:
+    """Resolve the effective settings from *ns* and *config*.
+
+    Config supplies defaults; any explicit CLI flag wins outright.
+    """
     if ns.delete is not None:
         selected = set(ns.delete)
     elif "delete" in config:
@@ -612,7 +658,39 @@ def _merge(
         if ns.max_doc_lines is not None
         else config.get("max-doc-lines")
     )
-    return tuple(sorted(selected)), keep, default_keeps, exclude, max_doc_lines
+    max_file_lines = (
+        ns.max_file_lines
+        if ns.max_file_lines is not None
+        else config.get("max-file-lines")
+    )
+    return _Merged(
+        tuple(sorted(selected)),
+        keep,
+        default_keeps,
+        exclude,
+        max_doc_lines,
+        max_file_lines,
+    )
+
+
+def _summary(cfg: _Config, n_files: int, counts: "dict", verb: str) -> str:
+    summary = (
+        "stifle: %d file%s: %d %s, %d unchanged, %d skipped, %d failed"
+        % (
+            n_files,
+            "s" if n_files != 1 else "",
+            counts[CHANGED],
+            verb,
+            counts[UNCHANGED],
+            counts[SKIPPED],
+            counts[FAILED],
+        )
+    )
+    if cfg.max_doc_lines is not None:
+        summary += ", %d docstring violations" % counts["violations"]
+    if cfg.max_file_lines is not None:
+        summary += ", %d file-length violations" % counts["length_violations"]
+    return summary
 
 
 def main(argv: "Optional[Sequence[str]]" = None) -> int:
@@ -623,11 +701,11 @@ def main(argv: "Optional[Sequence[str]]" = None) -> int:
     command = "format" if ns.command == "strip" else ns.command
     if ns.max_doc_lines is not None and ns.max_doc_lines < 1:
         parser.error("--max-doc-lines must be at least 1")
+    if ns.max_file_lines is not None and ns.max_file_lines < 1:
+        parser.error("--max-file-lines must be at least 1")
     config = _load_config(ns.paths, ns.config, ns.isolated, parser)
-    targets, keep, default_keeps, exclude, max_doc_lines = _merge(
-        ns, config, parser
-    )
-    files, missing = _discover(ns.paths, exclude)
+    merged = _merge(ns, config, parser)
+    files, missing = _discover(ns.paths, merged.exclude)
     for path in missing:
         print("stifle: no such file or directory: %s" % path, file=sys.stderr)
     if not files:
@@ -636,29 +714,30 @@ def main(argv: "Optional[Sequence[str]]" = None) -> int:
 
     checking = not ns.fix if command == "check" else bool(ns.check)
     write = not checking and not ns.diff
-    cfg = _Config(targets, keep, default_keeps, write, ns.diff, max_doc_lines)
+    cfg = _Config(
+        merged.targets,
+        merged.keep,
+        merged.default_keeps,
+        write,
+        ns.diff,
+        merged.max_doc_lines,
+        merged.max_file_lines,
+    )
     jobs = ns.jobs if ns.jobs is not None else os.cpu_count() or 1
 
-    counts = {UNCHANGED: 0, CHANGED: 0, SKIPPED: 0, FAILED: 0, "violations": 0}
+    counts = {
+        UNCHANGED: 0,
+        CHANGED: 0,
+        SKIPPED: 0,
+        FAILED: 0,
+        "violations": 0,
+        "length_violations": 0,
+    }
     for result in _run(cfg, files, jobs):
         _report(result, ns, counts, checking)
 
     verb = "would change" if checking or ns.diff else "changed"
-    summary = (
-        "stifle: %d file%s: %d %s, %d unchanged, %d skipped, %d failed"
-        % (
-            len(files),
-            "s" if len(files) != 1 else "",
-            counts[CHANGED],
-            verb,
-            counts[UNCHANGED],
-            counts[SKIPPED],
-            counts[FAILED],
-        )
-    )
-    if max_doc_lines is not None:
-        summary += ", %d docstring violations" % counts["violations"]
-    print(summary, file=sys.stderr)
+    print(_summary(cfg, len(files), counts, verb), file=sys.stderr)
     if counts[FAILED] or counts[SKIPPED] or missing:
         return 2
     if checking and counts[CHANGED]:
@@ -675,7 +754,11 @@ def main(argv: "Optional[Sequence[str]]" = None) -> int:
             "the deletions)",
             file=sys.stderr,
         )
-    if (checking and counts[CHANGED]) or counts["violations"]:
+    if (
+        (checking and counts[CHANGED])
+        or counts["violations"]
+        or counts["length_violations"]
+    ):
         return 1
     return 0
 

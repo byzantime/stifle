@@ -327,6 +327,15 @@ def _docstring_stmt(
     return doc, doc.value
 
 
+def file_line_count(src: str) -> int:
+    """Number of physical lines in *src*, as ``wc -l`` counts them.
+
+    Blank lines, comments and docstrings all count, and a final line
+    without a trailing newline counts too.  Never tokenizes, never raises.
+    """
+    return len(_physical_lines(src))
+
+
 def docstring_violations(src: str, max_lines: int) -> List[DocstringViolation]:
     """Docstrings in *src* whose content exceeds *max_lines* lines.
 
