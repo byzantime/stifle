@@ -70,9 +70,9 @@ comment-stripped.
   (lines 1–2) — deleting these can break execution or the file's encoding,
   so they survive every selection, even `--no-default-keeps`.
 - **Tool pragmas**: comments starting with `# noqa`, `# fmt:`,
-  `# isort:`, `# ruff:`, `# mypy:`, `# type:`, `# pyright:`, `# pragma:`
-  (case-insensitive, flexible spacing). Pass `--no-default-keeps` if you
-  really do want "literally all comments".
+  `# isort:`, `# ruff:`, `# mypy:`, `# type:`, `# pyright:`, `# ty:`,
+  `# pragma:` (case-insensitive, flexible spacing). Pass `--no-default-keeps`
+  if you really do want "literally all comments".
 - Anything matching your own `--keep REGEX` (matched against the comment
   text, including the `#`).
 

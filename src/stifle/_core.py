@@ -48,7 +48,7 @@ _AST_TARGETS = frozenset({DOCSTRINGS, ORPHAN_STRINGS})
 
 
 DEFAULT_KEEPS: "Pattern[str]" = re.compile(
-    r"^#\s*(?:noqa\b|fmt:|isort:|ruff:|mypy:|type:|pyright:|pragma:)",
+    r"^#\s*(?:noqa\b|fmt:|isort:|ruff:|mypy:|type:|pyright:|ty:|pragma:)",
     re.IGNORECASE,
 )
 
