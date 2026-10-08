@@ -229,6 +229,8 @@ def test_shebang_and_coding_survive_every_target(targets):
         "# ruff: noqa",
         "# mypy: disallow-untyped-defs",
         "# pyright: ignore[reportGeneralTypeIssues]",
+        "# ty: ignore[unresolved-import]",
+        "#ty:ignore",
         "# pragma: no cover",
     ],
 )
@@ -237,8 +239,21 @@ def test_default_pragmas_kept_even_when_trailing_selected(pragma):
     assert strip(src, ALL_TARGETS) == src
 
 
-def test_pragma_lookalikes_are_deleted():
-    assert strip("x = 1  # noqasaurus\n", ALL_TARGETS) == "x = 1\n"
+@pytest.mark.parametrize(
+    "comment", ["# noqasaurus", "# typo", "# tyre", "# ty"]
+)
+def test_pragma_lookalikes_are_deleted(comment):
+    src = "x = 1  %s\n%s\ny = 2\n" % (comment, comment)
+    assert strip(src, ALL_TARGETS) == "x = 1\ny = 2\n"
+
+
+def test_cli_keeps_ty_pragmas(tmp_path):
+    f = tmp_path / "a.py"
+    src = "# ty: ignore\nimport foo  # ty: ignore[unresolved-import]\n"
+    f.write_text(src)
+    assert main(["check", str(f)]) == 0
+    assert main(["format", str(f)]) == 0
+    assert f.read_text() == src
 
 
 def test_no_default_keeps_deletes_pragmas():
